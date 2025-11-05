@@ -1,0 +1,30 @@
+{
+  "nmap_scan_mode": "custom",
+  "local_network_subnet_override": null,
+  "nmap_arguments_custom": "-sS -sV -f -T2 -Pn --script=http-title,banner",
+  "enable_brute_force": false,
+  "brute_force_scripts": "",
+  "brute_force_userdb": "users.txt",
+  "brute_force_passdb": "pass.txt",
+  "brute_force_stop_on_success": true,
+  "nmap_scan_timeout_per_host": 300,
+  "max_nmap_threads": 2,
+  "log_file": "network_scanner_advanced.log",
+  "log_level": "INFO",
+  "credentials": {
+    "ssh": {
+      "username": "",
+      "password": "",
+      "key_path": ""
+    },
+    "smb": {
+      "username": "",
+      "password": "",
+      "domain": ""
+    }
+  },
+  "external_db_urls": {
+    "nvd_cve": "https://nvd.nist.gov/vuln/detail/",
+    "exploitdb_search": "https://www.exploit-db.com/search?q="
+  }
+}
