@@ -4,15 +4,19 @@
 
 ```
 wire-py/
-├── rapid-scan.py              # Main network scanner with stealth features
+├── rapid-scan.py              # Main network scanner with advanced firewall bypass
 ├── quick-scan.py              # Fast ARP-only scanner
-├── advanced-scanner.py        # NEW: Advanced scanner with traffic analysis
+├── advanced-scanner.py        # Advanced scanner with traffic analysis
 ├── wire.ps1                   # Automated Windows setup script
-├── config.json                # Scanner configuration
-├── config_stealth.json        # Stealth mode configuration
+├── config.json                # Default scanner configuration
+├── config_stealth.json        # Original stealth mode configuration
+├── config_ultra_stealth.json  # NEW: Ultra stealth preset (maximum evasion)
+├── config_balanced.json       # NEW: Balanced preset (speed vs stealth)
+├── config_aggressive.json     # NEW: Aggressive preset (maximum speed)
 ├── requirements.txt           # Standard dependencies
 ├── requirements-advanced.txt  # Advanced scanner dependencies
 ├── ADVANCED-GUIDE.md          # Complete usage guide
+├── FIREWALL-BYPASS-GUIDE.md   # NEW: Firewall evasion techniques guide
 ├── users.txt                  # Brute-force username wordlist
 ├── pass.txt                   # Brute-force password wordlist
 ├── scan_outputs/              # Scan results (JSON, CSV)
@@ -22,7 +26,7 @@ wire-py/
 
 ## 🎯 Three Scanner Tools Included
 
-### 1. rapid-scan.py - Comprehensive Network Scanner
+### 1. rapid-scan.py - Comprehensive Network Scanner with Advanced Firewall Bypass
 **Features:**
 - ✅ ARP network discovery
 - ✅ Multi-threaded Nmap scanning
@@ -31,13 +35,26 @@ wire-py/
 - ✅ OS detection
 - ✅ Brute-force credential testing
 - ✅ Web directory enumeration
-- ✅ **STEALTH MODE** with:
-  - SYN scanning (-sS)
-  - Decoy IPs to confuse firewalls
-  - Slower timing to avoid detection
-  - Randomized host scanning
-  - Fragmentation (Linux only)
-- ✅ Fallback scanning when firewalls block
+- ✅ **ADVANCED FIREWALL BYPASS** with:
+  - Source port manipulation (DNS-53, HTTP-80, HTTPS-443)
+  - Packet fragmentation (Linux only)
+  - Decoy IPs to confuse IDS/IPS systems
+  - MTU size manipulation
+  - Data length randomization
+  - Timing and rate control
+  - TTL manipulation
+  - MAC address spoofing (Linux only)
+  - Bad checksum testing
+- ✅ **MULTIPLE SCAN TECHNIQUES**:
+  - SYN scan (default)
+  - FIN scan (stealth)
+  - NULL scan (stealth)
+  - XMAS scan (stealth)
+- ✅ **ADAPTIVE RETRY LOGIC**:
+  - Automatic retry with different techniques
+  - Multiple fallback methods
+  - IPv6 fallback support
+  - Intelligent source port rotation
 - ✅ Stores ARP data even when Nmap fails
 - ✅ JSON and CSV export
 
