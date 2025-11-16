@@ -33,6 +33,21 @@ CONFIG = { # Default config
     "decoy_count": 3,
     "fragment_packets": True,
     "randomize_hosts": True,
+    # Advanced firewall bypass options
+    "source_port": 53,  # Use DNS port (53) to bypass firewalls
+    "data_length": 0,  # Random data length (0 for random)
+    "mtu_size": 0,  # MTU size (0 for auto)
+    "scan_delay": 0,  # Delay between probes in ms (0 for default)
+    "max_rate": 0,  # Maximum packets per second (0 for unlimited)
+    "spoof_mac": None,  # MAC address to spoof (null for none)
+    "ttl_value": 0,  # TTL value (0 for default)
+    "badsum": False,  # Send packets with bad TCP/UDP checksums
+    "scan_techniques": ["syn", "fin", "null", "xmas"],  # Multiple scan techniques
+    "ipv6_fallback": True,  # Try IPv6 if IPv4 fails
+    "proxy_chains": False,  # Use proxy chains if available
+    "retry_on_failure": True,  # Retry failed scans with different techniques
+    "max_retries": 3,  # Maximum retry attempts
+    "adaptive_timing": True,  # Adjust timing based on network conditions
     "credentials": {
         "ssh": { "username": "", "password": "", "key_path": "" },
         "smb": { "username": "", "password": "", "domain": "" }
@@ -288,35 +303,138 @@ def nmap_scan(ip_addr):
     if CONFIG.get("randomize_hosts", False):
         nmap_command_args += " --randomize-hosts"
 
+    # Advanced firewall bypass techniques
+    # Source port manipulation - many firewalls allow DNS (53) or HTTP (80) traffic
+    source_port = CONFIG.get("source_port", 0)
+    if source_port > 0:
+        nmap_command_args += f" --source-port {source_port}"
+        logging.info(f"Using source port {source_port} for firewall bypass")
+    
+    # MTU size manipulation for firewall evasion
+    mtu_size = CONFIG.get("mtu_size", 0)
+    if mtu_size > 0:
+        nmap_command_args += f" --mtu {mtu_size}"
+        logging.info(f"Using MTU size {mtu_size}")
+    
+    # Data length randomization
+    data_length = CONFIG.get("data_length", 0)
+    if data_length > 0:
+        nmap_command_args += f" --data-length {data_length}"
+        logging.info(f"Using data length {data_length}")
+    
+    # Scan delay for avoiding IDS/IPS detection
+    scan_delay = CONFIG.get("scan_delay", 0)
+    if scan_delay > 0:
+        nmap_command_args += f" --scan-delay {scan_delay}ms"
+        logging.info(f"Using scan delay {scan_delay}ms")
+    
+    # Maximum rate limiting
+    max_rate = CONFIG.get("max_rate", 0)
+    if max_rate > 0:
+        nmap_command_args += f" --max-rate {max_rate}"
+        logging.info(f"Using max rate {max_rate} packets/sec")
+    
+    # MAC address spoofing
+    spoof_mac = CONFIG.get("spoof_mac", None)
+    if spoof_mac and sys.platform.startswith('linux'):
+        nmap_command_args += f" --spoof-mac {spoof_mac}"
+        logging.info(f"Spoofing MAC address: {spoof_mac}")
+    
+    # TTL manipulation
+    ttl_value = CONFIG.get("ttl_value", 0)
+    if ttl_value > 0:
+        nmap_command_args += f" --ttl {ttl_value}"
+        logging.info(f"Using TTL value {ttl_value}")
+    
+    # Bad checksum for firewall detection
+    if CONFIG.get("badsum", False):
+        nmap_command_args += " --badsum"
+        logging.info("Using bad checksums for firewall detection")
+
     nmap_timeout_opt = f"--host-timeout {CONFIG.get('nmap_scan_timeout_per_host', 300)}s"
     full_nmap_args = f"{nmap_command_args.strip()} {nmap_timeout_opt}"
 
     logging.info(f"Nmap scanning {ip_addr} with arguments: {full_nmap_args}")
+    
+    # Try primary scan
     try:
         nm.scan(hosts=ip_addr, arguments=full_nmap_args)
         if ip_addr in nm.all_hosts():
             logging.info(f"Nmap scan for {ip_addr} completed successfully - host data found")
             return nm[ip_addr]
-        else:
-            # Host blocking aggressive scan - try simple ping scan
-            logging.warning(f"Nmap scan for {ip_addr} completed but host data not found. Trying fallback ping scan...")
-            try:
-                nm_fallback = nmap.PortScanner()
-                nm_fallback.scan(hosts=ip_addr, arguments="-sn -Pn")  # Simple host discovery
-                if ip_addr in nm_fallback.all_hosts():
-                    logging.info(f"Fallback ping scan successful for {ip_addr}")
-                    return nm_fallback[ip_addr]
-            except Exception as fallback_err:
-                logging.debug(f"Fallback scan also failed for {ip_addr}: {fallback_err}")
-            
-            logging.warning(f"Host {ip_addr} is likely blocking all scan attempts (firewall active)")
-            return None
-    except nmap.nmap.PortScannerError as e:
-        logging.error(f"Nmap PortScannerError for {ip_addr}: {e}.")
-        return None
-    except Exception as e:
-        logging.error(f"Unhandled error scanning {ip_addr} with Nmap: {e}")
-        return None
+    except (nmap.nmap.PortScannerError, Exception) as e:
+        logging.warning(f"Primary scan failed for {ip_addr}: {e}")
+    
+    # Retry with alternative techniques if enabled
+    if CONFIG.get("retry_on_failure", True):
+        max_retries = CONFIG.get("max_retries", 3)
+        scan_techniques = CONFIG.get("scan_techniques", ["syn", "fin", "null", "xmas"])
+        
+        for attempt in range(max_retries):
+            if attempt < len(scan_techniques):
+                technique = scan_techniques[attempt]
+                logging.warning(f"Retry {attempt + 1}/{max_retries} for {ip_addr} using {technique.upper()} scan...")
+                
+                try:
+                    nm_retry = nmap.PortScanner()
+                    retry_args = ""
+                    
+                    # Select scan technique
+                    if technique == "syn":
+                        retry_args = "-sS -Pn -T2"
+                    elif technique == "fin":
+                        retry_args = "-sF -Pn -T2"  # FIN scan
+                    elif technique == "null":
+                        retry_args = "-sN -Pn -T2"  # NULL scan
+                    elif technique == "xmas":
+                        retry_args = "-sX -Pn -T2"  # XMAS scan
+                    
+                    # Add source port for common allowed ports
+                    if attempt == 0:
+                        retry_args += " --source-port 53"  # DNS
+                    elif attempt == 1:
+                        retry_args += " --source-port 80"  # HTTP
+                    elif attempt == 2:
+                        retry_args += " --source-port 443"  # HTTPS
+                    
+                    retry_args += f" --host-timeout {CONFIG.get('nmap_scan_timeout_per_host', 300)}s"
+                    
+                    logging.info(f"Retry scan arguments: {retry_args}")
+                    nm_retry.scan(hosts=ip_addr, arguments=retry_args)
+                    
+                    if ip_addr in nm_retry.all_hosts():
+                        logging.info(f"Retry successful with {technique.upper()} scan for {ip_addr}")
+                        return nm_retry[ip_addr]
+                
+                except Exception as retry_err:
+                    logging.debug(f"Retry {attempt + 1} failed for {ip_addr}: {retry_err}")
+                    time.sleep(1)  # Brief delay between retries
+    
+    # Final fallback - simple host discovery
+    logging.warning(f"All advanced scans failed for {ip_addr}. Trying final fallback...")
+    try:
+        nm_fallback = nmap.PortScanner()
+        nm_fallback.scan(hosts=ip_addr, arguments="-sn -Pn")  # Simple host discovery
+        if ip_addr in nm_fallback.all_hosts():
+            logging.info(f"Fallback host discovery successful for {ip_addr}")
+            return nm_fallback[ip_addr]
+    except Exception as fallback_err:
+        logging.debug(f"Final fallback also failed for {ip_addr}: {fallback_err}")
+    
+    # Try IPv6 if configured and available
+    if CONFIG.get("ipv6_fallback", True):
+        try:
+            logging.info(f"Attempting IPv6 scan for {ip_addr}...")
+            nm_ipv6 = nmap.PortScanner()
+            nm_ipv6.scan(hosts=ip_addr, arguments="-6 -sn -Pn")
+            if ip_addr in nm_ipv6.all_hosts():
+                logging.info(f"IPv6 scan successful for {ip_addr}")
+                return nm_ipv6[ip_addr]
+        except Exception as ipv6_err:
+            logging.debug(f"IPv6 scan failed for {ip_addr}: {ipv6_err}")
+    
+    logging.warning(f"Host {ip_addr} is blocking all scan attempts (strong firewall/IDS active)")
+    return None
 
 def parse_nmap_results(nmap_host_data, ip_addr_str):
     if not nmap_host_data: return {}
